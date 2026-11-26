@@ -16,10 +16,10 @@ jobs:
       - name: Create .env file from secrets
         shell: powershell
         run: |
-          "DB_NAME=${{ secrets.DB_NAME }}" 
-          "DB_USER=${{ secrets.DB_USER }}" 
-          "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" 
-          Get-Content .env
+          "DB_NAME=${{ secrets.DB_NAME }}" | Out-File -FilePath .env -Encoding utf8
+          "DB_USER=${{ secrets.DB_USER }}" | Out-File -FilePath .env -Append -Encoding utf8
+          "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" | Out-File -FilePath .env -Append -Encoding utf8
+          Get-Content .env | ForEach-Object { $_ -replace '=.*', '=***' }
 
       - name: Deploy with Docker Compose
         shell: powershell
