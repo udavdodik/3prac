@@ -39,9 +39,9 @@ jobs:
         run: |
           $ps = docker-compose ps
           if ($ps -match "Up") {
-            Write-Host "✓ All containers are running"
+            Write-Host "All containers are running"
           } else {
-            Write-Host "✗ Containers failed to start"
+            Write-Host "Containers failed to start"
             docker-compose logs
             exit 1
           }
@@ -52,9 +52,9 @@ jobs:
           Write-Host "1. Testing application and database connectivity..."
           try {
             $response = Invoke-WebRequest -Uri "http://localhost:5000/health" -UseBasicParsing
-            Write-Host "✓ Web application is healthy"
+            Write-Host "Web application is healthy"
           } catch {
-            Write-Host "✗ Web application health check failed"
+            Write-Host "Web application health check failed"
             exit 1
           }
 
@@ -69,9 +69,9 @@ jobs:
           Write-Host "Web API count: $WEB_COUNT"
 
           if ($DB_COUNT -eq $WEB_COUNT) {
-            Write-Host "✓ Data consistency test passed"
+            Write-Host "Data consistency test passed"
           } else {
-            Write-Host "✗ Data consistency test failed"
+            Write-Host "Data consistency test failed"
             exit 1
           }
 
