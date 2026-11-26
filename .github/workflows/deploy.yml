@@ -76,6 +76,11 @@ jobs:
           } catch {
             Write-Host "ERROR FETCHING FROM WEB: $($_.Exception.Message)"
             $WEB_COUNT = "ERROR"
+            
+            Write-Host "--- FORCING LOGS FROM APP CONTAINER ---"
+            docker-compose ps
+            docker-compose logs --tail=50 app
+            Write-Host "---------------------------------------"
           }
 
           Write-Host "Database count: $DB_COUNT"

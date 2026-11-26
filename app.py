@@ -13,10 +13,10 @@ def health():
 def count():
     time.sleep(1)
     conn = psycopg2.connect(
-        host='db',
-        database=os.environ.get('DB_NAME'),
-        user=os.environ.get('DB_USER'),
-        password=os.environ.get('DB_PASSWORD')
+        host=os.environ.get('DB_HOST', 'db'),
+        database=os.environ.get('DB_NAME', 'myapp'),
+        user=os.environ.get('DB_USER', 'postgres'),
+        password=os.environ.get('DB_PASSWORD', 'supersecret')
     )
     cur = conn.cursor()
     cur.execute('SELECT COUNT(*) FROM items;')
