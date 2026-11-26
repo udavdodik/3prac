@@ -29,7 +29,10 @@ jobs:
       - name: Deploy with Docker Compose
         shell: powershell
         run: |
+          Write-Host "Cleaning up old containers and volumes..."
           docker-compose down -v
+          
+          Write-Host "Starting fresh..."
           docker-compose up -d --build
           Start-Sleep -Seconds 25
           docker-compose ps
@@ -46,12 +49,6 @@ jobs:
             exit 1
           }
 
-      - name: Show App Logs for Debugging
-        shell: powershell
-        run: |
-          Write-Host "--- LOGS FROM APP CONTAINER ---"
-          docker-compose logs app
-
       - name: Run application tests
         shell: powershell
         run: |
@@ -65,23 +62,22 @@ jobs:
           }
 
           Write-Host "2. Preparing database data..."
+          # Используем секреты для доступа к БД
           docker-compose exec -T db psql -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -c "DROP TABLE IF EXISTS items; CREATE TABLE items (id serial primary key, name varchar); INSERT INTO items (name) VALUES ('a'), ('b'), ('c'), ('d'), ('e');"
 
           Write-Host "3. Testing data consistency..."
+          # Получаем данные из БД (используем секреты)
           $DB_RAW = docker-compose exec -T db psql -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -t -c "SELECT COUNT(*) FROM items;"
           if ($DB_RAW) { $DB_COUNT = $DB_RAW.Trim() } else { $DB_COUNT = "0" }
           
+          # Получаем данные из веб-приложения
           try {
             $WEB_RAW = (Invoke-WebRequest -Uri "http://localhost:5000/api/items/count" -UseBasicParsing).Content
             if ($WEB_RAW) { $WEB_COUNT = $WEB_RAW.Trim() } else { $WEB_COUNT = "0" }
           } catch {
             Write-Host "ERROR FETCHING FROM WEB: $($_.Exception.Message)"
             $WEB_COUNT = "ERROR"
-            
-            Write-Host "--- FORCING LOGS FROM APP CONTAINER ---"
-            docker-compose ps
             docker-compose logs --tail=50 app
-            Write-Host "---------------------------------------"
           }
 
           Write-Host "Database count: $DB_COUNT"
