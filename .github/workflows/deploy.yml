@@ -13,13 +13,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Создаем .env через PowerShell
       - name: Create .env file from secrets
         shell: powershell
         run: |
-          "DB_NAME=${{ secrets.DB_NAME }}" | Out-File -FilePath .env -Encoding utf8
+          "DB_HOST=db" | Out-File -FilePath .env -Encoding utf8
+          "DB_PORT=5432" | Out-File -FilePath .env -Append -Encoding utf8
+          "DB_NAME=${{ secrets.DB_NAME }}" | Out-File -FilePath .env -Append -Encoding utf8
           "DB_USER=${{ secrets.DB_USER }}" | Out-File -FilePath .env -Append -Encoding utf8
           "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" | Out-File -FilePath .env -Append -Encoding utf8
-          Get-Content .env | ForEach-Object { $_ -replace '=.*', '=***' }
+          "APP_PORT=5000" | Out-File -FilePath .env -Append -Encoding utf8
+          "COMPOSE_PROJECT_NAME=myapp" | Out-File -FilePath .env -Append -Encoding utf8
+          Write-Host "--- Created .env file: ---"
+          Get-Content .env
 
       - name: Deploy with Docker Compose
         shell: powershell
@@ -35,6 +41,7 @@ jobs:
           if ($ps -match "Up") {
             Write-Host "✓ All containers are running"
           } else {
+            Write-Host "✗ Containers failed to start"
             docker-compose logs
             exit 1
           }
@@ -56,7 +63,6 @@ jobs:
 
           Write-Host "3. Testing data consistency..."
           $DB_COUNT = (docker-compose exec -T db psql -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -t -c "SELECT COUNT(*) FROM items;").Trim()
-          
           $WEB_COUNT = (Invoke-WebRequest -Uri "http://localhost:5000/api/items/count" -UseBasicParsing).Content
 
           Write-Host "Database count: $DB_COUNT"
