@@ -29,6 +29,7 @@ jobs:
       - name: Deploy with Docker Compose
         shell: powershell
         run: |
+          docker-compose down -v
           docker-compose up -d --build
           Start-Sleep -Seconds 25
           docker-compose ps
