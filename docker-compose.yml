@@ -2,21 +2,20 @@ services:
   db:
     image: postgres:15
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: myapp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: supersecret
     ports:
       - "5432:5432"
 
   app:
     build: .
-    ports:
-      - "${APP_PORT}:${APP_PORT}"
     environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: db
+      DB_NAME: myapp
+      DB_USER: postgres
+      DB_PASSWORD: supersecret
+    ports:
+      - "5000:5000"
     depends_on:
       - db

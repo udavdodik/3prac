@@ -45,6 +45,12 @@ jobs:
             exit 1
           }
 
+      - name: Show App Logs for Debugging
+        shell: powershell
+        run: |
+          Write-Host "--- LOGS FROM APP CONTAINER ---"
+          docker-compose logs app
+          
       - name: Run application tests
         shell: powershell
         run: |
