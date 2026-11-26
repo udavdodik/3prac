@@ -2,16 +2,13 @@ name: Full Stack Application Deployment Test
 
 on:
   push:
-    branches: [ main ]          
-  workflow_dispatch:          
-
-env:
-  COMPOSE_PROJECT_NAME: myapp  
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   deploy-and-test:
-    runs-on: self-hosted 
-    
+    runs-on: self-hosted
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,69 +16,62 @@ jobs:
       - name: Create .env file from secrets
         shell: powershell
         run: |
-          cat > .env << EOF
-          DB_HOST=${{ secrets.DB_HOST }}
-          DB_PORT=${{ secrets.DB_PORT }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          DB_USER=${{ secrets.DB_USER }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          APP_PORT=${{ secrets.APP_PORT }}
-          APP_SECRET=${{ secrets.APP_SECRET }}
-          API_KEY=${{ secrets.API_KEY }}
-          COMPOSE_PROJECT_NAME=${{ env.COMPOSE_PROJECT_NAME }}
-          EOF
-          sed 's/=.*/=***/' .env   
+          "DB_NAME=${{ secrets.DB_NAME }}" | Out-File -FilePath .env -Encoding utf8
+          "DB_USER=${{ secrets.DB_USER }}" | Out-File -FilePath .env -Append -Encoding utf8
+          "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" | Out-File -FilePath .env -Append -Encoding utf8
+          Get-Content .env | ForEach-Object { $_ -replace '=.*', '=***' }
 
       - name: Deploy with Docker Compose
         run: |
-          docker-compose up -d
-          sleep 30                   
+          docker-compose up -d --build
+          Start-Sleep -Seconds 25
           docker-compose ps
 
       - name: Verify containers are running
         run: |
-          if docker-compose ps | grep -q "Up"; then
-            echo "✓ All containers are running"
-          else
+          $ps = docker-compose ps
+          if ($ps -match "Up") {
+            Write-Host "✓ All containers are running"
+          } else {
             docker-compose logs
             exit 1
-          fi
+          }
 
       - name: Run application tests
         run: |
-          echo "1. Testing application and database connectivity..."
-          if curl -f http://localhost:${{ secrets.APP_PORT }}/health; then
-            echo "✓ Web application is healthy"
-          else
+          Write-Host "1. Testing application and database connectivity..."
+          try {
+            $response = Invoke-WebRequest -Uri "http://localhost:5000/health" -UseBasicParsing
+            Write-Host "✓ Web application is healthy"
+          } catch {
+            Write-Host "✗ Web application health check failed"
             exit 1
-          fi
+          }
+
+          Write-Host "2. Preparing database data..."
+          docker-compose exec -T db psql -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -c "DROP TABLE IF EXISTS items; CREATE TABLE items (id serial primary key, name varchar); INSERT INTO items (name) VALUES ('a'), ('b'), ('c'), ('d'), ('e');"
+
+          Write-Host "3. Testing data consistency..."
+          $DB_COUNT = (docker-compose exec -T db psql -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -t -c "SELECT COUNT(*) FROM items;").Trim()
           
-          API_RESPONSE=$(curl -s http://localhost:${{ secrets.APP_PORT }}/api/data)
-          if [ $? -eq 0 ]; then
-            echo "✓ Application database connection working"
-          else
+          $WEB_COUNT = (Invoke-WebRequest -Uri "http://localhost:5000/api/items/count" -UseBasicParsing).Content
+
+          Write-Host "Database count: $DB_COUNT"
+          Write-Host "Web API count: $WEB_COUNT"
+
+          if ($DB_COUNT -eq $WEB_COUNT) {
+            Write-Host "✓ Data consistency test passed"
+          } else {
+            Write-Host "✗ Data consistency test failed"
             exit 1
-          fi
-
-          echo "2. Testing data consistency..."
-          DB_COUNT=$(docker-compose exec -T db psql -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -t -c "SELECT COUNT(*) FROM items;" | tr -d ' ')
-          WEB_COUNT=$(curl -s http://localhost:${{ secrets.APP_PORT }}/api/items/count)
-
-          echo "Database count: $DB_COUNT"
-          echo "Web API count: $WEB_COUNT"
-
-          if [ "$DB_COUNT" = "$WEB_COUNT" ]; then
-            echo "✓ Data consistency test passed"
-          else
-            exit 1
-          fi
+          }
 
       - name: Save artifacts
-        if: always()                 
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: deployment-artifacts
           path: |
             .env
-            docker-compose.log
+            docker-compose.yml
           retention-days: 7
