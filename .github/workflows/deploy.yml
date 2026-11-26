@@ -22,12 +22,14 @@ jobs:
           Get-Content .env | ForEach-Object { $_ -replace '=.*', '=***' }
 
       - name: Deploy with Docker Compose
+        shell: powershell
         run: |
           docker-compose up -d --build
           Start-Sleep -Seconds 25
           docker-compose ps
 
       - name: Verify containers are running
+        shell: powershell
         run: |
           $ps = docker-compose ps
           if ($ps -match "Up") {
@@ -38,6 +40,7 @@ jobs:
           }
 
       - name: Run application tests
+        shell: powershell
         run: |
           Write-Host "1. Testing application and database connectivity..."
           try {
