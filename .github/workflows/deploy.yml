@@ -50,7 +50,7 @@ jobs:
         run: |
           Write-Host "--- LOGS FROM APP CONTAINER ---"
           docker-compose logs app
-          
+
       - name: Run application tests
         shell: powershell
         run: |
@@ -67,8 +67,16 @@ jobs:
           docker-compose exec -T db psql -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -c "DROP TABLE IF EXISTS items; CREATE TABLE items (id serial primary key, name varchar); INSERT INTO items (name) VALUES ('a'), ('b'), ('c'), ('d'), ('e');"
 
           Write-Host "3. Testing data consistency..."
-          $DB_COUNT = (docker-compose exec -T db psql -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -t -c "SELECT COUNT(*) FROM items;").Trim()
-          $WEB_COUNT = (Invoke-WebRequest -Uri "http://localhost:5000/api/items/count" -UseBasicParsing).Content
+          $DB_RAW = docker-compose exec -T db psql -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -t -c "SELECT COUNT(*) FROM items;"
+          if ($DB_RAW) { $DB_COUNT = $DB_RAW.Trim() } else { $DB_COUNT = "0" }
+          
+          try {
+            $WEB_RAW = (Invoke-WebRequest -Uri "http://localhost:5000/api/items/count" -UseBasicParsing).Content
+            if ($WEB_RAW) { $WEB_COUNT = $WEB_RAW.Trim() } else { $WEB_COUNT = "0" }
+          } catch {
+            Write-Host "ERROR FETCHING FROM WEB: $($_.Exception.Message)"
+            $WEB_COUNT = "ERROR"
+          }
 
           Write-Host "Database count: $DB_COUNT"
           Write-Host "Web API count: $WEB_COUNT"
